@@ -90,6 +90,43 @@ python main.py
 | 重排序 | BAAI/bge-reranker-base |
 | 大模型 | 阿里百炼 qwen-plus（OpenAI 兼容接口） |
 
+## 开发规划
+
+### 第一阶段（已完成）
+基础 RAG 系统：文档索引 → 静态流程 → 单轮问答
+
+**特点：**
+- 用户提问 → 向量召回 → 重排 → LLM 生成
+- 流程固定，每个环节不可跳过
+
+### 第二阶段（Agentic RAG）
+智能 Agent 驱动的 RAG 系统：LLM 自主决策检索策略
+
+**核心特性：**
+1. **智能判断** — Agent 根据问题决定是否需要检索
+2. **多步骤推理** — 支持多轮检索与推理，逐步逼近答案
+3. **工具调用** — 集成外部工具（搜索、计算、API 等）
+4. **反思与修正** — Agent 验证答案准确性，必要时重新检索
+5. **对话记忆** — 支持多轮对话的上下文维护
+
+**可能实现方向：**
+- 使用 LangChain AgentExecutor / ReAct 框架
+- 定义 Retrieval、Rerank、Answer Verify 等工具
+- 实现 Tool Calling 让 LLM 自主调用 RAG 管道
+- 支持 Function Calling 扩展外部能力（Web Search、Database Query 等）
+
+**示例流程：**
+```
+用户: "TA 前台如何配置数据库？doc 里有这个内容吗?"
+
+Agent 思考: 需要先检索相关文档，再基于检索结果判断是否需要补充搜索
+
+步骤 1: 调用 retrieve_documents("数据库配置")
+步骤 2: 检查召回结果，若不满足则调用 web_search()
+步骤 3: 综合多个信息源生成答案
+步骤 4: 反思答案质量，若不确定则继续检索
+```
+
 
 
 # 本地知识库 RAG 方案第一阶段
