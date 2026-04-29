@@ -1,4 +1,5 @@
 import os
+from dataclasses import dataclass
 from pathlib import Path
 from typing import List
 
@@ -7,6 +8,13 @@ from langchain_core.documents import Document
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
 from src.logger import setup_logger
+
+
+@dataclass
+class RankedDocument:
+    document: Document
+    score: float
+    original_index: int
 
 _DEFAULT_RERANKER_MODEL_DIR = Path.home() / ".cache/modelscope/hub/models/BAAI/bge-reranker-base"
 _reranker_model = None
@@ -64,3 +72,26 @@ def rerank(query: str, documents: List[Document], top_k: int = 3) -> List[Docume
         logger.debug(f"   [{i}] 分数={score:.3f} | {documents[idx].metadata.get('source', 'unknown')}")
 
     return ranked_docs
+
+
+def rerank_with_scores(query: str, documents: List[Document], top_k: int = 3) -> List[RankedDocument]:
+    """与 rerank() 逻辑相同，但返回含分数和原始索引的 RankedDocument 列表。"""
+    if not documents:
+        return []
+
+    tokenizer, model = load_reranker_model()
+    pairs = [[query, doc.page_content] for doc in documents]
+    encoded_input = tokenizer(pairs, padding=True, truncation=True, return_tensors="pt")
+
+    with torch.no_grad():
+        scores = model(**encoded_input).logits.view(-1).float()
+
+    top_indices = scores.argsort(descending=True)[:top_k].tolist()
+    return [
+        RankedDocument(
+            document=documents[i],
+            score=float(scores[i]),
+            original_index=i,
+        )
+        for i in top_indices
+    ]

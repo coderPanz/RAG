@@ -7,8 +7,33 @@ from openai import OpenAI
 from src.logger import setup_logger
 
 _BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+_DEFAULT_MODEL = "qwen3.5-flash"
 _llm_client = None
+_current_model: str | None = None
 logger = setup_logger("generation")
+
+
+def get_model() -> str:
+    return _current_model or os.getenv("DASHSCOPE_MODEL", _DEFAULT_MODEL)
+
+
+def set_model(name: str) -> None:
+    global _current_model
+    _current_model = name
+
+
+def test_model_connectivity(model_name: str) -> tuple[bool, str]:
+    """用最小请求验证模型是否可用，返回 (成功, 消息)。"""
+    try:
+        client = get_llm_client()
+        client.chat.completions.create(
+            model=model_name,
+            messages=[{"role": "user", "content": "hi"}],
+            max_tokens=1,
+        )
+        return True, f"模型 {model_name} 连通正常"
+    except Exception as e:
+        return False, str(e)
 
 
 def get_llm_client():
@@ -55,7 +80,7 @@ def generate_answer(query: str, context_documents: List[Document]) -> str:
         },
     ]
 
-    model_name = os.getenv("DASHSCOPE_MODEL", "qwen3.5-122b-a10b")
+    model_name = get_model()
     logger.debug(f"调用 LLM：model={model_name}")
 
     completion = client.chat.completions.create(

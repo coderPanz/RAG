@@ -23,9 +23,14 @@ RAG/
 │   ├── indexing/store.py       # 向量存储与召回（ChromaDB）
 │   ├── retrieval/reranker.py   # 重排序（BAAI/bge-reranker-base）
 │   ├── generation/llm.py       # 大模型生成（DashScope）
-│   └── pipeline.py             # RAG 完整流水线
+│   ├── pipeline.py             # RAG 完整流水线（CLI 用）
+│   ├── pipeline_trace.py       # 带结构化追踪的查询接口（Web UI 用）
+│   └── metrics/
+│       └── store.py            # SQLite 查询指标持久化
 ├── tests/                      # 单元测试
-├── main.py                     # 程序入口
+├── app.py                      # Streamlit Web UI 入口
+├── main.py                     # CLI 入口
+├── metrics.db                  # 查询指标数据库（运行时生成，已 gitignore）
 ├── requirements.txt
 └── .env.example
 ```
@@ -70,13 +75,27 @@ DASHSCOPE_API_KEY=your_dashscope_api_key_here
 
 ## 使用
 
-将文档放入 `doc/` 目录（支持 `.md` 和 `.pdf`），然后运行：
+将文档放入 `doc/` 目录（支持 `.md` 和 `.pdf`）。
+
+### CLI 模式
 
 ```bash
 python main.py
 ```
 
-程序会自动完成建索引和问答两个阶段。
+### Web UI 模式
+
+```bash
+streamlit run app.py
+```
+
+浏览器打开后包含三个页面：
+
+| 页面 | 功能 |
+|------|------|
+| **问答** | 输入问题，查看答案；内嵌 Pipeline 执行追踪面板（候选文档、Rerank 分数、Context 内容、各阶段耗时） |
+| **性能监控** | 历史查询耗时趋势图、各阶段占比、Rerank 分数分布直方图、最近查询记录表 |
+| **索引状态** | 查看 ChromaDB 分片数量，支持一键构建索引 |
 
 ## 技术选型
 
@@ -87,6 +106,9 @@ python main.py
 | 向量数据库 | ChromaDB |
 | 重排序 | BAAI/bge-reranker-base |
 | 大模型 | 阿里百炼 qwen-plus（OpenAI 兼容接口） |
+| Web UI | Streamlit |
+| 可视化图表 | Plotly |
+| 指标持久化 | SQLite（stdlib） |
 
 ## 开发规划
 
@@ -96,6 +118,19 @@ python main.py
 **特点：**
 - 用户提问 → 向量召回 → 重排 → LLM 生成
 - 流程固定，每个环节不可跳过
+
+### 可视化层（已完成）
+Streamlit Web UI + Pipeline 追踪面板 + 性能监控 Dashboard
+
+**新增文件：**
+- `app.py` — Streamlit 三 Tab 应用入口
+- `src/pipeline_trace.py` — `query_with_trace()` 返回结构化 `TraceResult`（候选列表、Rerank 分数、各阶段耗时），供 UI 展示
+- `src/metrics/store.py` — SQLite 读写，记录每次查询的耗时、分数、候选数等指标
+- `src/retrieval/reranker.py` 新增 `rerank_with_scores()` — 暴露 cross-encoder 分数，原 `rerank()` 不变
+
+**设计决策：**
+- `pipeline.py` 与 `main.py` 完全不改动，CLI 保持可用
+- `metrics.db` 持久化到项目根目录，跨 Streamlit 会话保留历史记录
 
 ### 第二阶段（Agentic RAG）
 智能 Agent 驱动的 RAG 系统：LLM 自主决策检索策略
