@@ -1,0 +1,67 @@
+import os
+from typing import List
+
+from langchain_core.documents import Document
+from openai import OpenAI
+
+from src.logger import setup_logger
+
+_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+_llm_client = None
+logger = setup_logger("generation")
+
+
+def get_llm_client():
+    """初始化 LLM 客户端（单例）"""
+    global _llm_client
+    if _llm_client is None:
+        api_key = os.getenv("DASHSCOPE_API_KEY")
+        if not api_key:
+            raise EnvironmentError("未设置环境变量 DASHSCOPE_API_KEY，请在 .env 文件中配置")
+        logger.debug(f"初始化 LLM 客户端，base_url={_BASE_URL}")
+        _llm_client = OpenAI(api_key=api_key, base_url=_BASE_URL)
+    return _llm_client
+
+
+def _format_context(context_documents: List[Document]) -> str:
+    """将召回/重排后的文档分片拼接成 LLM 上下文"""
+    context_parts = []
+    for index, document in enumerate(context_documents, start=1):
+        source = document.metadata.get("source", "unknown")
+        context_parts.append(
+            f"【资料 {index}】\n来源：{source}\n内容：{document.page_content}"
+        )
+    return "\n\n".join(context_parts)
+
+
+def generate_answer(query: str, context_documents: List[Document]) -> str:
+    """用 LLM 生成最终答案"""
+    logger.debug(f"准备调用 LLM，上下文分片数={len(context_documents)}")
+
+    client = get_llm_client()
+    context = _format_context(context_documents)
+
+    messages = [
+        {
+            "role": "system",
+            "content": (
+                "你是一个严谨的 RAG 问答助手。请优先根据给定资料回答问题；"
+                "如果资料中没有答案，请明确说明资料不足，不要编造。"
+            ),
+        },
+        {
+            "role": "user",
+            "content": f"问题：{query}\n\n参考资料：\n{context}",
+        },
+    ]
+
+    model_name = os.getenv("DASHSCOPE_MODEL", "qwen3.5-122b-a10b")
+    logger.debug(f"调用 LLM：model={model_name}")
+
+    completion = client.chat.completions.create(
+        model=model_name,
+        messages=messages,
+    )
+    answer = completion.choices[0].message.content
+    logger.debug(f"LLM 生成完成，答案长度={len(answer)}")
+    return answer
