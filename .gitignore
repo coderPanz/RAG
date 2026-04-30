@@ -34,7 +34,7 @@ wheels/
 *~
 
 # 向量数据库
-src/indexing/chroma_db/
+src/utils/chroma_db/
 
 # 查询指标数据库
 metrics.db

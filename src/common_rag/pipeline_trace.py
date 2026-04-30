@@ -4,9 +4,9 @@ from typing import List
 
 from langchain_core.documents import Document
 
-from src.generation.llm import generate_answer
-from src.indexing.store import similarity_search
-from src.retrieval.reranker import rerank_with_scores
+from utils.llm import generate_answer
+from utils.store import similarity_search
+from utils.reranker import rerank_with_scores
 
 
 @dataclass

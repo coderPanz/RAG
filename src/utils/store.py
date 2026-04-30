@@ -4,8 +4,8 @@ from typing import List
 from langchain_core.documents import Document
 from langchain_chroma import Chroma
 
-from src.embedding.vectorizer import embed_texts
-from src.logger import setup_logger
+from utils.vectorizer import embed_texts
+from logger import setup_logger
 
 _DEFAULT_PERSIST_DIR = Path(__file__).resolve().parent / "chroma_db"
 _vector_store = None

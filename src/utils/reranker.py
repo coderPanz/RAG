@@ -7,7 +7,7 @@ import torch
 from langchain_core.documents import Document
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
-from src.logger import setup_logger
+from logger import setup_logger
 
 
 @dataclass

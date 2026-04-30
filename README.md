@@ -4,33 +4,48 @@
 
 ## 架构
 
+**普通模式（common）**
 ```
-离线阶段（建索引）
-文档 → 分片 → 向量化 → ChromaDB
+离线阶段：文档 → 分片 → 向量化 → ChromaDB
+在线阶段：问题 → 向量召回 → 重排 → LLM → 答案
+```
 
-在线阶段（问答）
-问题 → 向量化 → 召回 → 重排 → LLM → 答案
+**Agentic 模式（agentic）**
+```
+离线阶段：同上
+在线阶段：问题 → LLM 路由（chat_qa / knowledge_qa）
+             ├─ knowledge_qa → 向量召回 → 重排 → LLM → 相关性评分
+             │                    └─ reject → query 重写 → 重走 RAG
+             └─ chat_qa → LLM 直接生成
 ```
 
 ## 项目结构
 
 ```
 RAG/
-├── doc/                        # 知识库文档（.md / .pdf）
+├── doc/                                   # 知识库文档（.md / .pdf）
 ├── src/
-│   ├── ingestion/loader.py     # 文档加载与分片（LangChain）
-│   ├── embedding/vectorizer.py # 文本向量化（BAAI/bge-large-zh-v1.5）
-│   ├── indexing/store.py       # 向量存储与召回（ChromaDB）
-│   ├── retrieval/reranker.py   # 重排序（BAAI/bge-reranker-base）
-│   ├── generation/llm.py       # 大模型生成（DashScope）
-│   ├── pipeline.py             # RAG 完整流水线（CLI 用）
-│   ├── pipeline_trace.py       # 带结构化追踪的查询接口（Web UI 用）
-│   └── metrics/
-│       └── store.py            # SQLite 查询指标持久化
-├── tests/                      # 单元测试
-├── app.py                      # Streamlit Web UI 入口
-├── main.py                     # CLI 入口
-├── metrics.db                  # 查询指标数据库（运行时生成，已 gitignore）
+│   ├── common_rag/
+│   │   ├── pipeline.py                    # 普通 RAG 流水线
+│   │   ├── pipeline_trace.py              # 带结构化追踪的查询接口（Web UI 用）
+│   │   └── logger.py                      # 日志配置
+│   ├── agentic_rag/
+│   │   ├── agent_router.py                # LLM 路由器（chat_qa / knowledge_qa / 相关性评分）
+│   │   ├── pipeline.py                    # Agentic 流水线（路由 → RAG → 评分 → 重写）
+│   │   └── pipeline_trace.py              # Agentic 带追踪查询接口
+│   └── utils/
+│       ├── loader.py                      # 文档加载与分片（LangChain）
+│       ├── vectorizer.py                  # 文本向量化（BAAI/bge-large-zh-v1.5）
+│       ├── store.py                       # 向量存储与召回（ChromaDB）
+│       ├── reranker.py                    # 重排序（BAAI/bge-reranker-base）
+│       ├── llm.py                         # 大模型生成（DashScope）
+│       ├── rag_search.py                  # RAG 检索封装
+│       ├── prompt_manage.py               # Prompt 模板管理
+│       ├── get_llm_client.py              # LLM 客户端工厂
+│       └── metrics/store.py               # SQLite 查询指标持久化
+├── app.py                                 # Streamlit Web UI 入口
+├── main.py                                # CLI 入口
+├── metrics.db                             # 查询指标数据库（运行时生成，已 gitignore）
 ├── requirements.txt
 └── .env.example
 ```
@@ -59,7 +74,7 @@ modelscope download --model BAAI/bge-large-zh-v1.5
 modelscope download --model BAAI/bge-reranker-base
 ```
 
-### 3. 配置环境变量
+### 4. 配置环境变量
 
 复制 `.env.example` 为 `.env` 并填入 DashScope API Key：
 
@@ -80,16 +95,35 @@ DASHSCOPE_API_KEY=your_dashscope_api_key_here
 ### CLI 模式
 
 ```bash
-python main.py
+# 普通模式（默认）
+python main.py --model=common
+
+# Agentic 模式（查询分解 + 多路召回）
+python main.py --model=agentic
 ```
 
 ### Web UI 模式
+
+**启动**
 
 ```bash
 streamlit run app.py
 ```
 
-浏览器打开后包含三个页面：
+浏览器会自动打开 `http://localhost:8501`。
+
+**首次使用流程**
+
+1. 切换到 **「索引状态」** Tab，点击「构建索引」按钮——系统会加载 `doc/` 下的所有文档，完成分片、向量化并写入 ChromaDB（约需数十秒）。
+2. 看到「索引已就绪」提示后，切换到 **「问答」** Tab。
+3. 在左侧侧边栏选择检索模式：
+   - **普通模式** — 向量召回 → 精排 → LLM 生成
+   - **Agentic 模式** — LLM 查询分解 → 多路召回 → 去重精排 → LLM 生成
+4. 输入问题，点击「提交」，查看答案及 Pipeline 执行追踪。
+
+> 索引只需构建一次，数据持久化在 `common-rag/src/indexing/chroma_db/`，重启后无需重建。
+
+**页面功能**
 
 | 页面 | 功能 |
 |------|------|
@@ -124,41 +158,34 @@ Streamlit Web UI + Pipeline 追踪面板 + 性能监控 Dashboard
 
 **新增文件：**
 - `app.py` — Streamlit 三 Tab 应用入口
-- `src/pipeline_trace.py` — `query_with_trace()` 返回结构化 `TraceResult`（候选列表、Rerank 分数、各阶段耗时），供 UI 展示
-- `src/metrics/store.py` — SQLite 读写，记录每次查询的耗时、分数、候选数等指标
-- `src/retrieval/reranker.py` 新增 `rerank_with_scores()` — 暴露 cross-encoder 分数，原 `rerank()` 不变
+- `common-rag/src/pipeline_trace.py` — `query_with_trace()` 返回结构化 `TraceResult`（候选列表、Rerank 分数、各阶段耗时），供 UI 展示
+- `common-rag/src/metrics/store.py` — SQLite 读写，记录每次查询的耗时、分数、候选数等指标
+- `common-rag/src/retrieval/reranker.py` 新增 `rerank_with_scores()` — 暴露 cross-encoder 分数，原 `rerank()` 不变
+
+### 目录重构（已完成）
+将原扁平 `src/` 重构为 `src/common_rag/`、`src/agentic_rag/`、`src/utils/` 三个 Python 包，共享工具层（向量化、存储、重排、LLM）。
 
 **设计决策：**
-- `pipeline.py` 与 `main.py` 完全不改动，CLI 保持可用
-- `metrics.db` 持久化到项目根目录，跨 Streamlit 会话保留历史记录
+- `src/utils/` 作为公共工具包，两种模式共享，避免代码重复
+- `main.py` 通过 `--model` 参数选择加载 `common_rag` 或 `agentic_rag` 的 pipeline
+- ChromaDB 索引统一存放，两种模式共享同一向量索引
 
 ### 第二阶段（Agentic RAG）
-智能 Agent 驱动的 RAG 系统：LLM 自主决策检索策略
+当前已实现基于 **LLM 路由器** 的 Agentic 流水线。
 
-**核心特性：**
-1. **智能判断** — Agent 根据问题决定是否需要检索
-2. **多步骤推理** — 支持多轮检索与推理，逐步逼近答案
-3. **工具调用** — 集成外部工具（搜索、计算、API 等）
-4. **反思与修正** — Agent 验证答案准确性，必要时重新检索
-5. **对话记忆** — 支持多轮对话的上下文维护
+**已实现：**
+- `src/agentic_rag/agent_router.py` — LLM 路由器，含三个核心节点：
+  - `llm_router`：路由决策入口，判断走 RAG 分支还是直接对话
+  - `rag_depend_reason`：文档相关性评分，决定是否接受当前检索结果
+  - `action_match`：解析 LLM 输出，提取路由指令（chat_qa / knowledge_qa / score）
+- `src/agentic_rag/pipeline.py` — 带自适应路由的 Agentic 查询接口
+- `src/agentic_rag/pipeline_trace.py` — 带结构化追踪的 Agentic 查询接口，供 Web UI 展示
+- 各节点均接入结构化日志（`agentic.router` logger），记录路由决策、检索数量、评分结果等关键信息
 
-**可能实现方向：**
-- 使用 LangChain AgentExecutor / ReAct 框架
-- 定义 Retrieval、Rerank、Answer Verify 等工具
-- 实现 Tool Calling 让 LLM 自主调用 RAG 管道
-- 支持 Function Calling 扩展外部能力（Web Search、Database Query 等）
-
-**示例流程：**
-```
-用户: "如何配置系统的数据库连接？"
-
-Agent 思考: 需要先检索相关文档，再基于检索结果判断是否需要补充搜索
-
-步骤 1: 调用 retrieve_documents("数据库配置")
-步骤 2: 检查召回结果，若不满足则调用 web_search()
-步骤 3: 综合多个信息源生成答案
-步骤 4: 反思答案质量，若不确定则继续检索
-```
+**后续扩展方向：**
+- 使用 LangChain AgentExecutor / ReAct 框架实现多轮工具调用
+- 定义 Retrieval、Rerank、Answer Verify 等 Tool
+- 支持多轮对话记忆
 
 
 

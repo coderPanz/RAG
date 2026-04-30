@@ -4,9 +4,9 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from src.pipeline_trace import TraceResult
+    from pipeline_trace import TraceResult
 
-DB_PATH = Path(__file__).resolve().parents[2] / "metrics.db"
+DB_PATH = Path(__file__).resolve().parents[3] / "metrics.db"
 
 _DDL = """
 CREATE TABLE IF NOT EXISTS query_log (

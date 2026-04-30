@@ -5,7 +5,7 @@ from typing import List
 import torch
 from transformers import AutoModel, AutoTokenizer
 
-from src.logger import setup_logger
+from logger import setup_logger
 
 _MODEL_NAME = "BAAI/bge-large-zh-v1.5"
 _DEFAULT_MODEL_DIR = Path.home() / ".cache/modelscope/hub/models/BAAI/bge-large-zh-v1___5"
@@ -45,12 +45,3 @@ def embed_texts(texts: List[str]) -> torch.Tensor:
     embeddings = torch.nn.functional.normalize(sentence_embeddings, p=2, dim=1)
     logger.debug(f"✓ 向量化完成，维度 = {embeddings.shape[1]}")
     return embeddings
-
-# 测试
-# if __name__ == "__main__":
-#     documents = load_documents()
-#     texts = [doc.page_content for doc in split_documents(documents)]
-#     embeddings = embed_texts(texts)
-#     for embedding in embeddings:
-#         print(f'ffffff{embedding}')
-        

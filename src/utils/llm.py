@@ -1,15 +1,20 @@
 import os
 from typing import List
 
+from dotenv import load_dotenv
 from langchain_core.documents import Document
 from openai import OpenAI
 
-from src.logger import setup_logger
+from logger import setup_logger
+from utils.prompt_manage import PromptManager
+
+load_dotenv()
 
 _BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
-_DEFAULT_MODEL = "qwen3.5-flash"
+_DEFAULT_MODEL = "deepseek-v4-flash"
 _llm_client = None
 _current_model: str | None = None
+_prompt_manager = PromptManager()
 logger = setup_logger("generation")
 
 
@@ -40,7 +45,7 @@ def get_llm_client():
     """初始化 LLM 客户端（单例）"""
     global _llm_client
     if _llm_client is None:
-        api_key = os.getenv("DASHSCOPE_API_KEY")
+        api_key = os.getenv("LLM_API_KEY")
         if not api_key:
             raise EnvironmentError("未设置环境变量 DASHSCOPE_API_KEY，请在 .env 文件中配置")
         logger.debug(f"初始化 LLM 客户端，base_url={_BASE_URL}")
@@ -66,21 +71,12 @@ def generate_answer(query: str, context_documents: List[Document]) -> str:
     client = get_llm_client()
     context = _format_context(context_documents)
 
-    messages = [
-        {
-            "role": "system",
-            "content": (
-                "你是一个严谨的 RAG 问答助手。请优先根据给定资料回答问题；"
-                "如果资料中没有答案，请明确说明资料不足，不要编造。"
-            ),
-        },
-        {
-            "role": "user",
-            "content": f"问题：{query}\n\n参考资料：\n{context}",
-        },
-    ]
+    messages = _prompt_manager.build_knowledge_qa_messages(
+        query=query,
+        context=context,
+    )
 
-    model_name = get_model()
+    model_name = 'deepseek-v4-flash'
     logger.debug(f"调用 LLM：model={model_name}")
 
     completion = client.chat.completions.create(

@@ -1,4 +1,4 @@
-from src.metrics.store import (
+from utils.metrics.store import (
     init_db,
     record_query,
     fetch_latency_series,
