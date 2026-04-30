@@ -24,9 +24,6 @@ def llm_reason(query: str):
 
 
 def action_match(text: str):
-    if re.search(r'chat_qa', text):
-        logger.debug("action_match → chat_qa")
-        return 'chat_qa'
     if re.search(r'knowledge_qa', text):
         logger.debug("action_match → knowledge_qa")
         return 'knowledge_qa'
@@ -71,15 +68,11 @@ def llm_router(query: str) -> str:
     router_raw = llm_reason(prompt_manager.build_router_prompt(query))
     logger.info("路由 LLM 原始输出 | raw=%r", router_raw[:200])
 
-    fork_res = action_match(router_raw)
-    logger.info("路由分支 → %r", fork_res)
-
-    if fork_res == 'knowledge_qa':
+    if action_match(router_raw) == 'knowledge_qa':
         logger.info("[RAG 分支] 开始向量检索 | query=%r", query)
         docs, llm_reason_res = rag_search(query)
         logger.info("[RAG 分支] 检索完成 | doc_count=%d", len(docs) if docs else 0)
 
-        # 文档相关性评分
         logger.info("[RAG 分支] 开始文档相关性评分")
         score_res = rag_depend_reason(query, docs, llm_reason_res)
         logger.info("[RAG 分支] 相关性评分结果 → %r", score_res)
@@ -95,10 +88,9 @@ def llm_router(query: str) -> str:
         return score_res
 
     else:
-        logger.info("[直接对话分支] 路由到普通 LLM 生成 | fork_res=%r", fork_res)
-        res = llm_reason(query)
-        logger.info("llm_router 完成 → 直接回答")
-        return res
+        # 路由器已直接给出答案，无需再调用 LLM
+        logger.info("llm_router 完成 → 路由器直接回答（无额外 LLM 调用）")
+        return router_raw
 
 
 def rag_depend_reason(query: str, embed_doc, llm_reason_res):

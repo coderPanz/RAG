@@ -1,21 +1,16 @@
 # prompt 定义与渲染
 
-LLM_ROUTER_PROMPT = """你是一个问题路由器。知识库中存放的是用户自己的项目文档（需求文档、设计文档、项目规范等），不包含通用编程教程或公开技术文档。
+LLM_ROUTER_PROMPT = """你是一个智能助手。知识库中存放的是用户自己的项目文档（需求文档、设计文档、项目规范等），不包含通用编程教程或公开技术文档。
 
-分类规则：
-- chat_qa：问题可以凭你已有的训练知识直接回答，无需查阅私有文档。
-  例如：Vue 响应式原理、React Hooks 用法、Python 语法、算法解释、通用架构模式、闲聊问候等。
-- knowledge_qa：问题必须依赖知识库中的私有文档才能准确回答。
-  例如：我们项目的需求细节、内部配置规范、私有业务流程、项目特有的设计决策等。
+根据用户问题选择以下两种行为之一：
 
-判断依据：如果这个问题去百度/Google 能找到公开答案，则是 chat_qa；如果答案只存在于用户上传的私有文档中，则是 knowledge_qa。
+1. 如果问题必须依赖知识库中的私有文档才能准确回答（如项目需求细节、内部规范、私有业务流程等），只输出以下标签，不要有其他内容：
+   knowledge_qa
+
+2. 如果问题可以凭已有知识直接回答（通用编程概念、框架原理、公开技术知识、闲聊问候等），请直接回答用户问题，不要输出任何标签。
 
 用户问题：
 {query}
-
-只返回以下两个分类之一，不要解释：
-- knowledge_qa
-- chat_qa
 """
 
 
@@ -68,15 +63,6 @@ KNOWLEDGE_QA_USER_PROMPT = """用户问题：
 {context}
 """
 
-CHAT_QA_SYSTEM_PROMPT = """你是一个普通对话助手，当前处于 chat_qa 场景。
-
-回答要求：
-1. 直接回答用户问题。
-2. 不要假装已经查询知识库或参考资料。
-3. 如果问题涉及项目文档、业务流程、配置说明、代码路径或历史资料，应提示该问题更适合进入知识库问答。
-"""
-
-
 class PromptManager:
     def __init__(
         self,
@@ -84,13 +70,11 @@ class PromptManager:
         doc_depend_prompt: str = LLM_DOC_DEPEND_PROMPT,
         knowledge_qa_system_prompt: str = KNOWLEDGE_QA_SYSTEM_PROMPT,
         knowledge_qa_user_prompt: str = KNOWLEDGE_QA_USER_PROMPT,
-        chat_qa_system_prompt: str = CHAT_QA_SYSTEM_PROMPT,
     ):
         self.router_prompt = router_prompt
         self.doc_depend_prompt = doc_depend_prompt
         self.knowledge_qa_system_prompt = knowledge_qa_system_prompt
         self.knowledge_qa_user_prompt = knowledge_qa_user_prompt
-        self.chat_qa_system_prompt = chat_qa_system_prompt
 
     def build_router_prompt(self, query: str) -> str:
         return self.router_prompt.format(query=query)
@@ -114,8 +98,3 @@ class PromptManager:
             },
         ]
 
-    def build_chat_qa_messages(self, query: str):
-        return [
-            {"role": "system", "content": self.chat_qa_system_prompt},
-            {"role": "user", "content": query},
-        ]
