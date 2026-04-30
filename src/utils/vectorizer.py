@@ -5,7 +5,7 @@ from typing import List
 import torch
 from transformers import AutoModel, AutoTokenizer
 
-from logger import setup_logger
+from utils.logger import setup_logger
 
 _MODEL_NAME = "BAAI/bge-large-zh-v1.5"
 _DEFAULT_MODEL_DIR = Path.home() / ".cache/modelscope/hub/models/BAAI/bge-large-zh-v1___5"

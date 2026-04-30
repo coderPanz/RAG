@@ -27,13 +27,13 @@ RAG/
 ├── src/
 │   ├── common_rag/
 │   │   ├── pipeline.py                    # 普通 RAG 流水线
-│   │   ├── pipeline_trace.py              # 带结构化追踪的查询接口（Web UI 用）
-│   │   └── logger.py                      # 日志配置
+│   │   └── pipeline_trace.py              # 带结构化追踪的查询接口（Web UI 用）
 │   ├── agentic_rag/
 │   │   ├── agent_router.py                # LLM 路由器（chat_qa / knowledge_qa / 相关性评分）
 │   │   ├── pipeline.py                    # Agentic 流水线（路由 → RAG → 评分 → 重写）
 │   │   └── pipeline_trace.py              # Agentic 带追踪查询接口
 │   └── utils/
+│       ├── logger.py                      # 日志配置（共享）
 │       ├── loader.py                      # 文档加载与分片（LangChain）
 │       ├── vectorizer.py                  # 文本向量化（BAAI/bge-large-zh-v1.5）
 │       ├── store.py                       # 向量存储与召回（ChromaDB）

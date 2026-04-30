@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 from langchain_core.documents import Document
 from openai import OpenAI
 
-from logger import setup_logger
+from utils.logger import setup_logger
 from utils.prompt_manage import PromptManager
 
 load_dotenv()

@@ -5,7 +5,7 @@ from langchain_core.documents import Document
 from langchain_chroma import Chroma
 
 from utils.vectorizer import embed_texts
-from logger import setup_logger
+from utils.logger import setup_logger
 
 _DEFAULT_PERSIST_DIR = Path(__file__).resolve().parent / "chroma_db"
 _vector_store = None

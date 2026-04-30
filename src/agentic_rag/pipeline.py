@@ -7,7 +7,7 @@ from utils.loader import load_documents, split_documents
 from utils.store import add_documents, similarity_search, get_chroma_client
 from utils.reranker import rerank
 from utils.llm import generate_answer, get_llm_client, get_model
-from logger import setup_logger
+from utils.logger import setup_logger
 from agentic_rag.agent_router import llm_router
 
 logger = setup_logger("agentic.pipeline")

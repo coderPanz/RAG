@@ -1,11 +1,9 @@
-import importlib.util
 import sys
 from dataclasses import asdict
 from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(_ROOT / "src"))
-sys.path.insert(0, str(_ROOT / "src" / "common-rag"))
 
 import pandas as pd
 import plotly.express as px
@@ -23,29 +21,15 @@ from utils.metrics import (
     record_query,
 )
 from utils.llm import get_model, set_model, test_model_connectivity
-from pipeline import build_index
-from pipeline_trace import query_with_trace as _common_query_with_trace
+from common_rag.pipeline import build_index
+from common_rag.pipeline_trace import query_with_trace as _common_query_with_trace
+from agentic_rag.pipeline_trace import query_with_trace as _agentic_query_with_trace
 
 init_db()
 
-_agentic_trace_mod = None
-
-
-def _get_agentic_query_with_trace():
-    global _agentic_trace_mod
-    if _agentic_trace_mod is None:
-        spec = importlib.util.spec_from_file_location(
-            "agentic_pipeline_trace",
-            _ROOT / "src" / "agentic-rag" / "pipeline_trace.py",
-        )
-        _agentic_trace_mod = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(_agentic_trace_mod)
-    return _agentic_trace_mod.query_with_trace
-
-
 def _query_with_trace(question: str, mode: str):
     if mode == "agentic":
-        return _get_agentic_query_with_trace()(question)
+        return _agentic_query_with_trace(question)
     return _common_query_with_trace(question)
 
 

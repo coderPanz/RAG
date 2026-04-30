@@ -1,7 +1,7 @@
 from utils.llm import get_llm_client
 from utils.prompt_manage import PromptManager
 from utils.rag_search import rag_search
-from logger import setup_logger
+from utils.logger import setup_logger
 import json
 import re
 

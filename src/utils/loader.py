@@ -6,7 +6,7 @@ from langchain_community.document_loaders import UnstructuredMarkdownLoader
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-from logger import setup_logger
+from utils.logger import setup_logger
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 logger = setup_logger("ingestion")

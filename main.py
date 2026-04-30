@@ -10,7 +10,6 @@ _preparser.add_argument("--model", choices=["common", "agentic"], default="commo
 _pre_args, _ = _preparser.parse_known_args()
 
 sys.path.insert(0, str(_ROOT / "src"))
-sys.path.insert(0, str(_ROOT / "src" / "common_rag"))
 
 from dotenv import load_dotenv
 
@@ -18,7 +17,7 @@ if _pre_args.model == "agentic":
     from agentic_rag.pipeline import build_index, query
 else:
     from common_rag.pipeline import build_index, query
-from logger import setup_logger
+from utils.logger import setup_logger
 
 load_dotenv()
 logger = setup_logger("main")
